@@ -8,13 +8,12 @@ output: html_notebook
 For the cell type specificity matrix, we only want to include cell types which could exist within the substantia nigra. 
 
 ```{r, eval=FALSE}
-
-
+if (!require("remotes")) install.packages("remotes")
+if (!require("pacman")) install.packages("pacman")
+if (!require("BiocManager")) install.packages("BiocManager")
+pacman::p_load("rhdf5","parallel","snow","parallelDist","affy","GEOquery","ggplot2","limma") #,"devtools")
+if (!require("EWCE"))  devtools::install_github("nathanskene/EWCE")
 library(EWCE)
-library("rhdf5")
-library("parallel")
-library("snow")
-library("parallelDist")
 
 # First, read in the mapping of cell names to cell types
 no_cores <- detectCores()
@@ -51,7 +50,8 @@ fNames_VentralMidbrain10x = generate.celltype.data(exp=exp_DROPPED,annotLevels=a
 Don't actually bother running the above, just use:
 
 ```{r }
-load("/Users/natske/Box Sync/Parkinsons_SGN2017/Data/CellTypeData_VentralMidbrain10x.rda")
+#load("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017/Data/CellTypeData_VentralMidbrain10x.rda")
+data(ctd)
 ```
 
 
@@ -64,9 +64,8 @@ Moran (GSE8397) used Affymetrix HG_U133 (15 samples of medial parkinsonian SN, 9
 ## Load the data
 
 ```{r}
-source("http://bioconductor.org/biocLite.R")
-biocLite("GEOquery")
-library("GEOquery")
+#source("http://bioconductor.org/biocLite.R")
+#biocLite("GEOquery")
 gse <- getGEO("GSE8397", GSEMatrix = TRUE)
 show(gse)
 title = as.character(pData(gse[[1]])$title)
@@ -84,11 +83,10 @@ u133b_files = gsub(".*/","",as.character(pData(phenoData(gse[[2]]))$supplementar
 
 ### LOAD THE EXPRESSION DATA ######
 #biocLite("affy")
-library(affy)
-data_u133a <- ReadAffy(filenames=u133a_files,celfile.path="/Users/natske/Box Sync/Parkinsons_SGN2017/Data/GSE8397_Raw",compress=TRUE) # Read in the CEL files then normalize
+data_u133a <- ReadAffy(filenames=u133a_files,celfile.path="/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Data/GSE8397_Raw",compress=TRUE) # Read in the CEL files then normalize
 eset_u133a <- rma(data_u133a)
 all_dat_u133a = exprs(eset_u133a)
-data_u133b <- ReadAffy(filenames=u133b_files,celfile.path="/Users/natske/Box Sync/Parkinsons_SGN2017/Data/GSE8397_Raw",compress=TRUE) # Read in the CEL files then normalize
+data_u133b <- ReadAffy(filenames=u133b_files,celfile.path="/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Data/GSE8397_Raw",compress=TRUE) # Read in the CEL files then normalize
 eset_u133b <- rma(data_u133b)
 all_dat_u133b = exprs(eset_u133b)
 all_dat = rbind(all_dat_u133a,all_dat_u133b)
@@ -134,34 +132,33 @@ plotEWCE <- function(joint_results,labelOrders,fName,width=8,height=10){
 for(reg in unique(region)){
     annot = data.frame(age=age[region==reg],gender=gender[region==reg],dx=dx[region==reg])
     exp   = all_dat[,region==reg]
-    library(limma)
     
     mod  = model.matrix(~annot$age+annot$gender+annot$dx)
     fit = lmFit(exp,mod)	
     eb = eBayes(fit)
     tt_PD = getTT(coef="annot$dxParkinsons",eb=eb,probe_annot=annot2)
-    write.csv(tt_PD,file=sprintf("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/TopTables/Moran/dx_%s.csv",reg))
+    write.csv(tt_PD,file=sprintf("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/TopTables/Moran/dx_%s.csv",reg))
     tt_Gender = getTT(coef="annot$genderM",eb=eb,probe_annot=annot2)
-    write.csv(tt_Gender,file=sprintf("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/TopTables/Moran/genderMale_%s.csv",reg))
+    write.csv(tt_Gender,file=sprintf("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/TopTables/Moran/genderMale_%s.csv",reg))
     
     ## Run EWCE
     colnames(tt_PD)[colnames(tt_PD)=="HGNC_Symbol"] = "HGNC.symbol"
     #tt_results = ewce_expression_data(sct_data=ctd,tt=tt_PD,annotLevel=2,ttSpecies="human",sctSpecies="mouse",reps=10000,thresh=500)
-    #dendroorder = read.csv("/Users/natske/Box Sync/Parkinsons_SGN2017/Data/DendroOrderSten.txt",header = FALSE,stringsAsFactors = FALSE)[,1]
-    #plotEWCE(joint_results=tt_results$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/Moran/dx_%s_lvl2.pdf",reg))
+    #dendroorder = read.csv("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Data/DendroOrderSten.txt",header = FALSE,stringsAsFactors = FALSE)[,1]
+    #plotEWCE(joint_results=tt_results$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/Moran/dx_%s_lvl2.pdf",reg))
     
     tt_results = ewce_expression_data(sct_data=ctd,tt=tt_PD,annotLevel=1,ttSpecies="human",sctSpecies="mouse",reps=10000,thresh=500)
-    dendroorder = unique(read.csv("/Users/natske/Box Sync/Parkinsons_SGN2017/Data/DendroOrderStenDesc.txt",header = FALSE,stringsAsFactors = FALSE,sep="!")[,1])
-    plotEWCE(joint_results=tt_results$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/Moran/dx_%s_lvl1.pdf",reg))
+    dendroorder = unique(read.csv("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Data/DendroOrderStenDesc.txt",header = FALSE,stringsAsFactors = FALSE,sep="!")[,1])
+    plotEWCE(joint_results=tt_results$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/Moran/dx_%s_lvl1.pdf",reg))
     res_moran = tt_results$joint_results
     res_moran$list = sprintf("Moran et al \\(2006\\)\n%s",reg)
-    save(res_moran,file=sprintf("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/Moran/Moran_%s.rda",reg))
+    save(res_moran,file=sprintf("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/Moran/Moran_%s.rda",reg))
     
     # Run analysis for gender
     colnames(tt_Gender)[colnames(tt_Gender)=="HGNC_Symbol"] = "HGNC.symbol"
     #tt_results = ewce_expression_data(sct_data=ctd,tt=tt_Gender,annotLevel=1,ttSpecies="human",sctSpecies="mouse",reps=10000,thresh=500)
-    #dendroorder = unique(read.csv("/Users/natske/Box Sync/Parkinsons_SGN2017/Data/DendroOrderStenDesc.txt",header = FALSE,stringsAsFactors = FALSE,sep="!")[,1])
-    #plotEWCE(joint_results=tt_results$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/Moran/gender_%s_lvl1.pdf",reg))
+    #dendroorder = unique(read.csv("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Data/DendroOrderStenDesc.txt",header = FALSE,stringsAsFactors = FALSE,sep="!")[,1])
+    #plotEWCE(joint_results=tt_results$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/Moran/gender_%s_lvl1.pdf",reg))
 }
 ```
 
@@ -182,7 +179,7 @@ lesnick_annot = data.frame(fname=filenames,dx=dx,gender=gender)
 rownames(lesnick_annot) = annot$fname
 
 ### LOAD THE EXPRESSION DATA ######
-data <- ReadAffy(celfile.path="/Users/natske/Box Sync/Parkinsons_SGN2017/Data/GSE7621_RAW",compress=TRUE) # Read in the CEL files then normalize
+data <- ReadAffy(celfile.path="/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Data/GSE7621_RAW",compress=TRUE) # Read in the CEL files then normalize
 eset <- rma(data)
 all_data = exprs(eset)
 #colnames(all_dat) = newTitle
@@ -218,28 +215,28 @@ mod  = model.matrix(~lesnick_annot$gender+lesnick_annot$dx)
 fit = lmFit(all_data,mod)	
 eb = eBayes(fit)
 tt_PD = getTT_lesnick(coef="lesnick_annot$dxParkinsons",eb=eb,probe_annot=annot2)
-write.csv(tt_PD,file=sprintf("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/TopTables/Lesnick/dx.csv"))
+write.csv(tt_PD,file=sprintf("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/TopTables/Lesnick/dx.csv"))
 tt_Gender = getTT_lesnick(coef="lesnick_annot$gendermale",eb=eb,probe_annot=annot2)
-write.csv(tt_Gender,file=sprintf("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/TopTables/Lesnick/genderMale.csv"))
+write.csv(tt_Gender,file=sprintf("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/TopTables/Lesnick/genderMale.csv"))
 
 ## Run EWCE
 colnames(tt_PD)[colnames(tt_PD)=="HGNC_Symbol"] = "HGNC.symbol"
 tt_results = ewce_expression_data(sct_data=ctd,tt=tt_PD,annotLevel=2,ttSpecies="human",sctSpecies="mouse",reps=10000,thresh=500)
-dendroorder = read.csv("/Users/natske/Box Sync/Parkinsons_SGN2017/Data/DendroOrderSten.txt",header = FALSE,stringsAsFactors = FALSE)[,1]
-plotEWCE(joint_results=tt_results$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/Lesnick/dx_%s_lvl2.pdf",reg),width=15)
+dendroorder = read.csv("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Data/DendroOrderSten.txt",header = FALSE,stringsAsFactors = FALSE)[,1]
+plotEWCE(joint_results=tt_results$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/Lesnick/dx_%s_lvl2.pdf",reg),width=15)
 
 tt_results_lesnick = ewce_expression_data(sct_data=ctd,tt=tt_PD,annotLevel=1,ttSpecies="human",sctSpecies="mouse",reps=10000,thresh=500)
 res_lesnick = tt_results_lesnick$joint_results
 res_lesnick$list = "Lesnick et al (2007)"
-save(res_lesnick,file="/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/Lesnick/Lesnick.rda")
-dendroorder = unique(read.csv("/Users/natske/Box Sync/Parkinsons_SGN2017/Data/DendroOrderStenDesc.txt",header = FALSE,stringsAsFactors = FALSE,sep="!")[,1])
-plotEWCE(joint_results=tt_results_lesnick$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/Lesnick/dx_%s_lvl1.pdf",reg))
+save(res_lesnick,file="/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/Lesnick/Lesnick.rda")
+dendroorder = unique(read.csv("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Data/DendroOrderStenDesc.txt",header = FALSE,stringsAsFactors = FALSE,sep="!")[,1])
+plotEWCE(joint_results=tt_results_lesnick$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/Lesnick/dx_%s_lvl1.pdf",reg))
 
 # Run analysis for gender
 colnames(tt_Gender)[colnames(tt_Gender)=="HGNC_Symbol"] = "HGNC.symbol"
 tt_results = ewce_expression_data(sct_data=ctd,tt=tt_Gender,annotLevel=1,ttSpecies="human",sctSpecies="mouse",reps=10000,thresh=500)
-dendroorder = unique(read.csv("/Users/natske/Box Sync/Parkinsons_SGN2017/Data/DendroOrderStenDesc.txt",header = FALSE,stringsAsFactors = FALSE,sep="!")[,1])
-plotEWCE(joint_results=tt_results$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/Lesnick/gender_%s_lvl1.pdf",reg))
+dendroorder = unique(read.csv("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Data/DendroOrderStenDesc.txt",header = FALSE,stringsAsFactors = FALSE,sep="!")[,1])
+plotEWCE(joint_results=tt_results$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/Lesnick/gender_%s_lvl1.pdf",reg))
 ```
 
 # VandeBerg dataset
@@ -260,7 +257,7 @@ This is the Braak staged Parkinsons data associated with the 2015 paper, "Eviden
 # This implicates that molecular mechanisms related to UPR, axonal dysfunction, endocytosis and immune response are an early event in PD pathology, 
 # and may hold the key to altering the disease progression in PD.
 
-data <- ReadAffy(celfile.path="/Users/natske/Datasets that are too large to store elsewhere/Disease Transcriptome Datasets/Parkinsons/GSE49036_RAW") # Read in the CEL files
+data <- ReadAffy(celfile.path="/Users/natske/OneDrive - Imperial College London/Datasets/Disease Transcriptome Datasets/Parkinsons/GSE49036_RAW") # Read in the CEL files
 eset <- rma(data)
 #write.exprs(eset,file="data.txt") # Save data to file (Data is log2 transformed and normalized)
 #exprs = exprs(eset)
@@ -288,7 +285,7 @@ title = as.character(pData(gse[[1]])$title)
 dx = rep("Parkinsons",length(title)); dx[grep("Stage 0",title)] = "Control"
 rin = as.numeric(pData(gse[[1]])$`rin:ch1`)
 braak = as.character(pData(gse[[1]])$`braak stage:ch1`)
-gender = all_dat["224588_at",]<8 # There is a clear seperation between genders based on this... it's not otherwise included
+gender = all_dat["224588_at",]<8 # There is a clear seperation between genders based on Xist... gender is not otherwise included but this is a standard gender biomarker
 filenames = gsub(".*/","",as.character(pData(phenoData(gse[[1]]))$supplementary_file))
 annot = data.frame(fname=filenames,dx=dx,gender=gender)
 rownames(annot) = annot$fname
@@ -299,7 +296,7 @@ iris_unique <- unique(iris) # Remove duplicates
 set.seed(42) # Sets seed for reproducibility
 tsne_out <- Rtsne(t(as.matrix(all_dat)),num_threads=7,perplexity=4) # Run TSNE
 tsneData = data.frame(tsne1=tsne_out$Y[,1],tsne2=tsne_out$Y[,2],braak=braak,rin=rin,xist=all_dat["224588_at",])
-ggplot(tsneData)+geom_point(aes(x=tsne1,y=tsne2,col=rin))
+ggplot(tsneData)+geom_point(aes(x=tsne1,y=tsne2,col=xist))
 
 #sampleAnnot = read.csv("GSE49036_series_matrix.txt")
 sAnn = data.frame(chip_id=colnames(all_dat),dx=dx,gender=gender,rin=rin)
@@ -327,21 +324,25 @@ tt_34 = merge(tt_34,annot3,by="affy_hg_u133a_2"); tt_34=tt_34[order(tt_34$P.Valu
 tt_56 = merge(tt_56,annot3,by="affy_hg_u133a_2"); tt_56=tt_56[order(tt_56$P.Value),]
 
 tt_results_12 = ewce_expression_data(sct_data=ctd,tt=tt_12,annotLevel=1,ttSpecies="human",sctSpecies="mouse",reps=10000,thresh=500)
-dendroorder = unique(read.csv("/Users/natske/Box Sync/Parkinsons_SGN2017/Data/DendroOrderStenDesc.txt",header = FALSE,stringsAsFactors = FALSE,sep="!")[,1])
-plotEWCE(joint_results=tt_results_12$joint_results,labelOrders=dendroorder,fName="/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/VandeBerg/dx_Braak12_lvl1.pdf",height=7)
+dendroorder = unique(read.csv("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017/Data/DendroOrderStenDesc.txt",header = FALSE,stringsAsFactors = FALSE,sep="!")[,1])
+plotEWCE(joint_results=tt_results_12$joint_results,labelOrders=dendroorder,fName="/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/VandeBerg/dx_Braak12_lvl1.pdf",height=7)
 tt_results_12$joint_results$list = "Braak stage 1-2"
 
 tt_results_34 = ewce_expression_data(sct_data=ctd,tt=tt_34,annotLevel=1,ttSpecies="human",sctSpecies="mouse",reps=10000,thresh=500)
-plotEWCE(joint_results=tt_results_34$joint_results,labelOrders=dendroorder,fName="/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/VandeBerg/dx_Braak34_lvl1.pdf",height=7)
+plotEWCE(joint_results=tt_results_34$joint_results,labelOrders=dendroorder,fName="/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/VandeBerg/dx_Braak34_lvl1.pdf",height=7)
 tt_results_34$joint_results$list = "Braak stage 3-4"
 
 tt_results_56 = ewce_expression_data(sct_data=ctd,tt=tt_56,annotLevel=1,ttSpecies="human",sctSpecies="mouse",reps=10000,thresh=500)
-plotEWCE(joint_results=tt_results_56$joint_results,labelOrders=dendroorder,fName="/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/VandeBerg/dx_Braak56_lvl1.pdf",height=7)
+plotEWCE(joint_results=tt_results_56$joint_results,labelOrders=dendroorder,fName="/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/VandeBerg/dx_Braak56_lvl1.pdf",height=7)
 tt_results_56$joint_results$list = "Braak stage 5-6"
 
+write.csv(tt_12,file="/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017/Results/TopTables/VandeBerg/tt_12.csv")
+write.csv(tt_34,file="/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017/Results/TopTables/VandeBerg/tt_34.csv")
+write.csv(tt_56,file="/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017/Results/TopTables/VandeBerg/tt_56.csv")
+
 res_merged = rbind(tt_results_12$joint_results,tt_results_34$joint_results,tt_results_56$joint_results)
-save(res_merged,file="/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/VandeBerg/VandeBerg_merged.rda")
-plotEWCE(joint_results=res_merged,labelOrders=dendroorder,fName="/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/VandeBerg/dx_merged_lvl1.pdf",height=7)
+save(res_merged,file="/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/VandeBerg/VandeBerg_merged.rda")
+plotEWCE(joint_results=res_merged,labelOrders=dendroorder,fName="/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/VandeBerg/dx_merged_lvl1.pdf",height=7)
 ```
 
 # Corradini dataset
@@ -367,7 +368,7 @@ exprs = exprs(gse[[1]])
 Get the probe annotations from GEO. This file was downloaded by clicking on the array reference on GEO.
 
 ```{r }
-probeAnnot = read.csv("/Users/natske/Box Sync/Parkinsons_SGN2017/Data/GPL6480-9577.txt",stringsAsFactors = FALSE,sep="\t",skip=17)[,c("ID","GENE_SYMBOL")]
+probeAnnot = read.csv("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Data/GPL6480-9577.txt",stringsAsFactors = FALSE,sep="\t",skip=17)[,c("ID","GENE_SYMBOL")]
 colnames(probeAnnot)[1] = "probeID"
 colnames(probeAnnot)[2] = "HGNC_Symbol"
 ```
@@ -383,118 +384,40 @@ for(reg in unique(region)){
     fit = lmFit(exp_corradini,mod)	
     eb = eBayes(fit)
     tt_PD = getTT_lesnick(coef="corradini_annot$dxParkinsons",eb=eb,probe_annot=probeAnnot)
-    write.csv(tt_PD,file=sprintf("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/TopTables/Corradini/dx_%s.csv",reg))
+    write.csv(tt_PD,file=sprintf("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/TopTables/Corradini/dx_%s.csv",reg))
     tt_Gender = getTT_lesnick(coef="corradini_annot$genderMale",eb=eb,probe_annot=probeAnnot)
-    write.csv(tt_Gender,file=sprintf("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/TopTables/Corradini/genderMale_%s.csv",reg))
+    write.csv(tt_Gender,file=sprintf("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/TopTables/Corradini/genderMale_%s.csv",reg))
     
     ## Run EWCE
     colnames(tt_PD)[colnames(tt_PD)=="HGNC_Symbol"] = "HGNC.symbol"
     #tt_results = ewce_expression_data(sct_data=ctd,tt=tt_PD,annotLevel=2,ttSpecies="human",sctSpecies="mouse",reps=10000,thresh=500)
-    #dendroorder = read.csv("/Users/natske/Box Sync/Parkinsons_SGN2017/Data/DendroOrderSten.txt",header = FALSE,stringsAsFactors = FALSE)[,1]
-    #plotEWCE(joint_results=tt_results$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/Moran/dx_%s_lvl2.pdf",reg))
+    #dendroorder = read.csv("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Data/DendroOrderSten.txt",header = FALSE,stringsAsFactors = FALSE)[,1]
+    #plotEWCE(joint_results=tt_results$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/Moran/dx_%s_lvl2.pdf",reg))
     
     tt_results = ewce_expression_data(sct_data=ctd,tt=tt_PD,annotLevel=1,ttSpecies="human",sctSpecies="mouse",reps=10000,thresh=500)
-    dendroorder = unique(read.csv("/Users/natske/Box Sync/Parkinsons_SGN2017/Data/DendroOrderStenDesc.txt",header = FALSE,stringsAsFactors = FALSE,sep="!")[,1])
-    plotEWCE(joint_results=tt_results$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/Corradini/dx_%s_lvl1.pdf",reg))
+    dendroorder = unique(read.csv("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Data/DendroOrderStenDesc.txt",header = FALSE,stringsAsFactors = FALSE,sep="!")[,1])
+    plotEWCE(joint_results=tt_results$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/Corradini/dx_%s_lvl1.pdf",reg))
     res_Corradini = tt_results$joint_results
     res_Corradini$list = sprintf("Corradini et al (2014)\n%s",reg)
-    save(res_Corradini,file=sprintf("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/Corradini/Corradini_%s.rda",reg))
+    save(res_Corradini,file=sprintf("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/Corradini/Corradini_%s.rda",reg))
     
     # Run analysis for gender
     colnames(tt_Gender)[colnames(tt_Gender)=="HGNC_Symbol"] = "HGNC.symbol"
     #tt_results = ewce_expression_data(sct_data=ctd,tt=tt_Gender,annotLevel=1,ttSpecies="human",sctSpecies="mouse",reps=10000,thresh=500)
-    #dendroorder = unique(read.csv("/Users/natske/Box Sync/Parkinsons_SGN2017/Data/DendroOrderStenDesc.txt",header = FALSE,stringsAsFactors = FALSE,sep="!")[,1])
-    #plotEWCE(joint_results=tt_results$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/Moran/gender_%s_lvl1.pdf",reg))
+    #dendroorder = unique(read.csv("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Data/DendroOrderStenDesc.txt",header = FALSE,stringsAsFactors = FALSE,sep="!")[,1])
+    #plotEWCE(joint_results=tt_results$joint_results,labelOrders=dendroorder,fName=sprintf("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/Moran/gender_%s_lvl1.pdf",reg))
 }
 ```
 
 # Plot all EWCE results together
 
 ```{r }
-load(file="/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/VandeBerg/VandeBerg_merged.rda") # res_merged
-load(file="/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/Lesnick/Lesnick.rda") # res_lesnick
-load("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/Moran/Moran_Medial SNc.rda") # res_moran
+load(file="/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/VandeBerg/VandeBerg_merged.rda") # res_merged
+load(file="/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/Lesnick/Lesnick.rda") # res_lesnick
+load("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/Moran/Moran_Medial SNc.rda") # res_moran
 res_moran_medial = res_moran
-load("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/Moran/Moran_Lateral SNc.rda")
+load("/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/Moran/Moran_Lateral SNc.rda")
 res_moran_lateral = res_moran
 allRes = rbind(res_merged,res_lesnick,res_moran_medial,res_moran_lateral)
-plotEWCE(joint_results=allRes,labelOrders=dendroorder,fName="/Users/natske/Box Sync/Parkinsons_SGN2017/Results/EWCE/dx_merged_lvl1.pdf",height=7)
-```
-
-
-# Run CIBERSORT to determine which cell types should be included
-
-```{r }
-# Get markers from supplementary table 
-markers = read.csv("/Users/natske/Box Sync/Parkinsons_SGN2017/Data/StenMarkers.csv",stringsAsFactors = FALSE)
-markers = markers[markers$X=="Marker",][,-2]
-markers = markers[markers$Cluster.ID %in% colnames(ctd[[2]]$specificity),]
-markers = markers[,-1]
-markers = unique(unlist(markers))
-markers = markers[markers %in% rownames(ctd[[2]]$mean_exp)]
-eee = ctd[[2]]$mean_exp[markers,]
-write.table(eee,file="/Users/natske/Box Sync/Parkinsons_SGN2017/Data/CIBERSORT_SigMatrix.tab",sep="\t",quote=FALSE)
-```
-
-
-##
-
-```{r }
-library(MAGMA.Celltyping)
-
-# Set path the 1000 genomes reference data.
-genome_ref_dir = "~/Downloads/g1000_eur"
-if(!file.exists(sprintf("%s/g1000_eur.bed",genome_ref_dir))){
-  download.file("https://ctg.cncr.nl/software/MAGMA/ref_data/g1000_eur.zip",destfile=sprintf("%s.zip",genome_ref_dir))
-  unzip(sprintf("%s.zip",genome_ref_dir),exdir=genome_ref_dir)
-}
-genome_ref_path = sprintf("%s/g1000_eur",genome_ref_dir)
-
-load("/Users/natske/Box Sync/CellTypeMappingPaper2019/ProcessedData/ctd_StensBigAdult_JuliansVersion_lvl5only.rda")
-ctd[[1]]$mean_exp = ctd[[1]]$specificity
-ctd = prepare.quantile.groups(ctd,specificity_species="mouse",numberOfBins=40)
-
-
-gwas_sumstats_path = "/Users/natske/Box Sync/CellTypeMappingPaper2019/ParkinsonMeta2018_Nalls_23andMe.annotated"
-
-
-tt = read.csv("/Users/natske/Box Sync/Parkinsons_SGN2017/Results/TopTables/Moran/dx_Medial SNc.csv",stringsAsFactors = FALSE)
-tt = tt[order(tt$t,decreasing=TRUE),]
-geneset = tt$HGNC_Symbol[1:500]
-calculate_geneset_enrichment(geneset,gwas_sumstats_path,analysis_name="pd_postMortem_moran",upstream_kb=35,downstream_kb=10,genome_ref_path,geneset_species="human")
-
-geneset = read.csv("/Users/natske/Google Drive/DiseaseLists/IREs.txt",stringsAsFactors = FALSE)[-1,1]
-calculate_geneset_enrichment(geneset,gwas_sumstats_path,analysis_name="pd_IREs",upstream_kb=35,downstream_kb=10,genome_ref_path,geneset_species="human")
-```
-
-
-```{r }
-library("biomaRt")
-human <- useMart(host="www.ensembl.org", "ENSEMBL_MART_ENSEMBL", dataset="hsapiens_gene_ensembl")
-attrib_hum = listAttributes(human)
-entrezTable = getBM(attributes=c("entrezgene","refseq_mrna"), mart=human)
-
-mirna = read.table("/Users/natske/Downloads/miRDB_v5.0_prediction_result.txt",stringsAsFactors = FALSE)
-mirna = mirna[grep("hsa",mirna[,1]),]
-newFile = rep("",length=length(unique(mirna$V1)))
-i=0
-for(mirnas in unique(mirna$V1)){
-  i=i+1
-  entrez = entrezTable[entrezTable$refseq_mrna %in% mirna[mirna$V1==mirnas,]$V2,]$entrezgene
-  newFile[i] = paste(c(mirnas,entrez),collapse=" ")
-}
-geneCovarFile="/Users/natske/Box Sync/CellTypeMappingPaper2019/miRDB_MAGMA_entrez.txt"
-write.table(newFile,file=geneCovarFile,quote=FALSE,row.names=FALSE,sep="\t",col.names=FALSE)
-
-magmaPaths = get.magma.paths(gwas_sumstats_path,upstream_kb=35,downstream_kb=10)
-magma_cmd = sprintf("magma --gene-results '%s.genes.raw' --set-annot '%s' --out '%s.%s'",magmaPaths$filePathPrefix,geneCovarFile,magmaPaths$filePathPrefix,analysis_name="miRDB")
-print(magma_cmd)
-system(magma_cmd)
-
-    #path = sprintf("%s.%s.sets.out",magmaPaths$filePathPrefix,analysis_name)
-    path = sprintf("%s.%s.gsa.out",magmaPaths$filePathPrefix,analysis_name="miRDB")
-    res = read.table(path,stringsAsFactors = FALSE)
-    colnames(res) = as.character(res[1,])
-    res=res[-1,]
-
+plotEWCE(joint_results=allRes,labelOrders=dendroorder,fName="/Users/natske/OneDrive - Imperial College London/Parkinsons_SGN2017//Results/EWCE/dx_merged_lvl1.pdf",height=7)
 ```
